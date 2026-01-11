@@ -6,7 +6,7 @@ from selenium.webdriver.chrome.service import Service
 logger = getLogger(__name__)
 
 class ConfigData:
-    _instance  = None
+    _instance = None
 
     def __new__(cls, *args, **kwargs):
         if not ConfigData._instance:
@@ -32,13 +32,8 @@ class ConfigData:
             #Web driver
             cls.web_driver = webdriver.Chrome(service=Service(executable_path=config_data["Browser_Driver_Path"]))
 
-            #Browser
-            cls.browser_data = {'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                                'AppleWebKit/537.36 (KHTML, like Gecko) '
-                                'Chrome/98.0.4758.102 Safari/537.36'),
-                                'Referer': config_data["URLs"]["login_url"],
-                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                                'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7'}
+            #Export path
+            cls.export_path = config_data["export_path"]
 
         return ConfigData._instance
 

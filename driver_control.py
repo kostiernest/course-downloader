@@ -7,7 +7,6 @@ from logging import getLogger
 from config_data import config_data
 from bs4 import BeautifulSoup
 
-
 logger = getLogger(__name__)
 
 
@@ -22,7 +21,6 @@ def make_get_request(driver: webdriver, url: str) -> None:
         Returns nothing.
     """
     try:
-
         driver.get(url)
 
     except (TimeoutException,
@@ -30,6 +28,8 @@ def make_get_request(driver: webdriver, url: str) -> None:
             Exception) as e:
         logger.critical(f"[{type(e).__name__}] - [{e}]")
         exit(3)
+    else:
+        logger.info(f"Click-through {url} successful.")
 
 
 def get_page_code(driver: webdriver) -> str | None:
@@ -46,14 +46,13 @@ def get_page_code(driver: webdriver) -> str | None:
 
     soup = BeautifulSoup(page_html, "html.parser")
 
-    return soup.prettify()
-
+    return  soup.prettify()
 
 def logging_in(driver: webdriver):
 
     try:
         #Going to the login page
-        driver.get(config_data.login_url)
+        make_get_request(driver=driver, url=config_data.login_url)
 
         #Waiting till the login page loads
         wait = WebDriverWait(driver,10)
@@ -74,7 +73,7 @@ def logging_in(driver: webdriver):
         login_button.click()
         wait.until(EC.presence_of_element_located((By.CLASS_NAME, "btn-enter")))
 
-        logger.info("Successful login.")
+        logger.info("Login successful.")
 
     except Exception as e:
         logger.critical(f"[{type(e).__name__}] - [{e}]")
