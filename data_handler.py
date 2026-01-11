@@ -7,7 +7,6 @@ from typing import List
 
 logger: Logger = getLogger(__name__)
 
-
 def clear_old_files(path: str) -> None:
     """
     Deletes all files in directory. And directory itself.
@@ -53,6 +52,7 @@ def create_folder(path: str) -> None:
 
     Returns:
         Returns nothing.
+
     """
     if exists(path):
         clear_old_files(path)

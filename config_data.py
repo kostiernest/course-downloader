@@ -1,7 +1,5 @@
 from json import load, JSONDecodeError
 from logging import getLogger, Logger
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 
 logger: Logger = getLogger(__name__)
 
@@ -22,7 +20,7 @@ class ConfigData:
 
             #Usage Mode
             cls.download_files = c_data["Usage_Mode"]["download_files"]
-            cls.download_videos = c_data["Usage_Mode"]["download_videos"]
+            cls.download_videos = ["Usage_Mode"]["download_videos"]
             #Course Data
             cls.course_name = c_data["course_name"]
             #Login_data
@@ -30,15 +28,16 @@ class ConfigData:
             cls.password = c_data["User_Data"]["password"]
 
             #URLs
-            cls.base_url= c_data["URLs"]["base_url"]
+            cls.base_url = c_data["URLs"]["base_url"]
             cls.login_url = c_data["URLs"]["login_url"]
             cls.profile_url = c_data["URLs"]["profile_url"]
             cls.teach_url = c_data["URLs"]["teach_url"]
 
-            #Web driver
-            cls.web_driver = webdriver.Chrome(service=Service(executable_path=c_data["browser_driver_path"]))
-            cls.web_driver.implicitly_wait(10)
-            cls.web_driver.set_page_load_timeout(30)
+            #Video Downloading
+            cls.video_download_attempts = c_data["video_download_attempts"]
+
+            #Entry button text
+            cls.login_button_text = c_data["login_button_text"]
 
             #Export path
             cls.video_data_path = c_data["video_data_path"]

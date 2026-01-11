@@ -1,9 +1,11 @@
 import time
+import chromedriver_autoinstaller
 import requests
+from selenium.webdriver.common.devtools.v141.network import Response
 import data_handler
 from json import loads
 from os.path import basename, join
-from youtube_dl import YoutubeDL, DownloadError
+from yt_dlp import YoutubeDL
 from io import BytesIO
 from re import search, compile, DOTALL
 from selenium import webdriver
@@ -13,7 +15,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from collections import namedtuple
 from json import JSONDecodeError
 from urllib.parse import urljoin
-from requests import Session, Response
+from requests import Session
 from logging import getLogger, Logger
 from typing import Dict
 from config_data import config_data
@@ -24,6 +26,21 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 logger: Logger = getLogger(__name__)
 Lesson_Data = namedtuple("Lesson_Data", ["text", "img_links", "file_links", "video_links"])
+
+
+def init_webdriver() -> webdriver:
+    """
+    Initializes and returns chrome webdriver.
+    Returns:
+        webdriver: Chrome webdriver.
+
+    """
+    chromedriver_autoinstaller.install()
+    web_driver = webdriver.Chrome()
+    web_driver.implicitly_wait(10)
+    web_driver.set_page_load_timeout(30)
+
+    return web_driver
 
 
 def is_connected(url: str = "https://www.google.com", timeout: int = 5) -> bool:
@@ -39,10 +56,10 @@ def is_connected(url: str = "https://www.google.com", timeout: int = 5) -> bool:
     """
     try:
         requests.get(url, timeout=timeout)
-        return True
+        return                          True
     except requests.RequestException:
         logger.error("No connection to the internet")
-        return False
+        return                          False
 
 
 def make_get_request(driver: webdriver, url: str) -> None:
@@ -55,11 +72,11 @@ def make_get_request(driver: webdriver, url: str) -> None:
     Returns:
         Returns nothing.
     """
-
     while True:
         if is_connected():
             try:
                 driver.get(url)
+
                 #Waiting until page completely loaded
                 WebDriverWait(driver, 20).until(
                     lambda d: d.execute_script("return document.readyState") == "complete"
@@ -89,16 +106,17 @@ def get_page_code(driver: webdriver) -> str | None:
     """
     page_html = driver.page_source
 
-    soup = BeautifulSoup(page_html, "html.parser")
+    soup: BeautifulSoup = BeautifulSoup(page_html, "html.parser")
 
     return soup.prettify()
 
 
-def logging_in(driver: webdriver) -> None:
+def logging_in(driver: webdriver, button_text: str) -> None:
     """
     Logging in webdriver.
     Args:
         driver(webdriver): Webdriver.
+        button_text(str): Text on the "Log in" button.
 
     Returns:
         Returns nothing.
@@ -119,7 +137,7 @@ def logging_in(driver: webdriver) -> None:
         password_field.send_keys(config_data.password)
 
         #Pressing log in button
-        login_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Send')]")
+        login_button = driver.find_element(By.XPATH, f"//button[contains(text(), '{button_text}')]")
         login_button.click()
 
         logger.info("Login successful.")
@@ -161,38 +179,48 @@ def get_course_topics(driver: webdriver) -> Dict | None:
 
 def get_topic_lessons(driver: webdriver) -> Dict | None:
     """
-    Get lessons of the topic.
+    Getting all lessons from topic.
+
     Args:
         driver(webdriver): Webdriver.
+
     Returns:
-        Dict | None: If everything is correct, returns dictionary of lessons. Otherwise, None.
+        dict | None: Dictionary of pairs "lesson_name : link to lesson" or None.
 
     """
     html_code = get_page_code(driver=driver)
 
     soup: BeautifulSoup = BeautifulSoup(html_code, "html.parser")
 
-    lessons = soup.find_all("li", class_="user-state-reached")
+    lessons = soup.find_all("li", class_=["user-state-has_mission", "user-state-accomplished"])
 
-    links: list[str] = []
-    lesson_names: list[str] = []
+    links = []
+    lesson_names = []
     for li in lessons:
 
-        title_div = li.find("div", class_="link title")
-        link = title_div.get("href")
-        lesson_name = title_div.get_text(strip=True)
+        title_div                       = li.find("div", class_="link title")
+        link                            = title_div.get("href")
+        lesson_name                     = title_div.get_text(strip=True)
         if "completed" in lesson_name:
             lesson_name=lesson_name[:-11]
 
-        if not ("ZOOM meeting" in lesson_name):
-            links.append(link)
-            lesson_names.append(lesson_name)
+        links.append(link)
+        lesson_names.append(lesson_name)
 
     return dict(zip(lesson_names, links))
 
 
-def parse_topic(driver:webdriver, topic_name: str, topic_link: str):
+def parse_topic(driver:webdriver, topic_name: str, topic_link: str) -> None:
+    """
+    Parsing a single topic
+    Args:
+        driver(webdriver): Webdriver.
+        topic_name(str): Name of the topic.
+        topic_link(str): Link to the topic.
 
+    Returns:
+        Returns nothing.
+    """
     make_get_request(driver=driver, url=topic_link)
 
     lessons = get_topic_lessons(driver)
@@ -206,16 +234,28 @@ def parse_topic(driver:webdriver, topic_name: str, topic_link: str):
                                        topic_name   = topic_name,
                                        lesson_name  = lesson_name,
                                        lesson_link  = f"{config_data.base_url}{lesson_link}")
-
             for video_link in video_links:
-                full_str                    = f"{config_data.export_path}\\{topic_name}\\{lesson_name}|{video_link}\n"
+                full_str: str = f"{config_data.export_path}\\{topic_name}\\{lesson_name}|{video_link}\n"
                 file.write(full_str)
 
     driver.back()
 
 
-def parse_lesson(driver: webdriver, topic_name, lesson_name: str, lesson_link: str):
+def parse_lesson(driver: webdriver, topic_name: str, lesson_name: str, lesson_link: str) -> list:
+    """
+    Parsing a single lesson.
+    Args:
+        driver(webdriver): Webdriver.
+        topic_name(str): Name of the lesson topic,
+        lesson_name(str): Name of the lesson.
+        lesson_link(str): Link to the lesson.
 
+    Returns:
+        list: Links to download videos from lesson.
+
+    """
+
+    MINIMAL_TEXT_SIZE: int = 3
     make_get_request(driver=driver, url=lesson_link)
 
     html = get_page_code(driver)
@@ -226,7 +266,7 @@ def parse_lesson(driver: webdriver, topic_name, lesson_name: str, lesson_link: s
     try:
 
         #Saving text
-        if len(all_data.text) > 0:
+        if len(all_data.text) > MINIMAL_TEXT_SIZE:
             with open(file=f"{config_data.export_path}\\{topic_name}\\{data_handler.get_rid_of_forbidden_symbols(lesson_name)}\\Text.txt", mode="w",
                       encoding="utf-8") as file:
                 file.write(all_data.text)
@@ -259,8 +299,9 @@ def parse_lesson(driver: webdriver, topic_name, lesson_name: str, lesson_link: s
 
         #Saving files
         for link in all_data.file_links:
-            file_name = basename(link)
-            file_path = f"{config_data.export_path}\\{topic_name}\\{data_handler.get_rid_of_forbidden_symbols(lesson_name)}"
+            file_name: str = basename(link)
+            file_path: str = f"{config_data.export_path}\\{topic_name}\\{data_handler.get_rid_of_forbidden_symbols(lesson_name)}"
+
             response: Response = session.get(url=link, headers=headers)
             response.raise_for_status()
             with open(f"{file_path}\\{file_name}", "wb") as f:
@@ -278,6 +319,7 @@ def parse_lesson(driver: webdriver, topic_name, lesson_name: str, lesson_link: s
 
 
 def get_data_links(driver: webdriver, html : str) -> namedtuple:
+
     """
     Gets links to data from page.
     Args:
@@ -296,7 +338,7 @@ def get_data_links(driver: webdriver, html : str) -> namedtuple:
     all_text: str = ""
     image_links: list[str] = []
     file_links: list[str] = []
-    player_links: list[str]= []
+    player_links: list[str] = []
 
     for block in blocks:
         #Player links
@@ -367,7 +409,6 @@ def get_video_playlist_url(driver: webdriver, player_url: str) -> str:
 
         master_url = loads(json_str).get("masterPlaylistUrl")
 
-
     except (Exception, JSONDecodeError) as e:
         logger.critical(f"[{type(e).__name__}] - [{e}]")
         exit(3)
@@ -392,20 +433,19 @@ def download_video(video_data: tuple[str,str]) -> None:
     """
     path, url = video_data
 
-    ydl_set = {"format" : "best",
+    ydl_set = {"format" : "bestvideo+bestaudio/best",
                 "hls_prefer_native": True,
                 "hls_use_mpegts": True,
                 "verbose": True,
                 "outtmpl": f"{path}/%(title)s.%(ext)s",
                 "ffmpeg_location": "ffmpeg\\bin\\ffmpeg.exe"}
 
-    for attempt in range(0,5):
+    for attempt in range(1, config_data.video_download_attempts ):
         try:
             with YoutubeDL(ydl_set) as ydl:
                 ydl.download([url])
             break
 
-        except DownloadError:
+        except Exception:
             logger.critical(f"Failed to download a video. Try number: {attempt}")
 
-    config_data.web_driver.quit()
