@@ -19,7 +19,7 @@ class ConfigData:
                 exit(3)
 
             #Login_data
-            cls.username = config_data["User_Data"]["username"]
+            cls.email = config_data["User_Data"]["email"]
             cls.password = config_data["User_Data"]["password"]
 
             #URLs
@@ -29,8 +29,12 @@ class ConfigData:
 
             #Browser
             cls.browser_data = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-                "Referer"   : config_data["URLs"]["login_url"]
+                'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                                 'Chrome/98.0.4758.102 Safari/537.36'),
+                'Referer': config_data["URLs"]["login_url"],
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7'
                 }
 
         return ConfigData._instance

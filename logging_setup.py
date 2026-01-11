@@ -35,7 +35,7 @@ def setup_logging(logger_file_path: str) -> Logger:
 	logger.addHandler(file_handler)
 	logger.addHandler(stream_handler)
 
-	return logger
+	return  logger
 
 if __name__ == "__main__":
 	pass
