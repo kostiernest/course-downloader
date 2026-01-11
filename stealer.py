@@ -1,16 +1,18 @@
 import os.path
+from multiprocessing import Pool, freeze_support
 import data_handler
 import driver_control
 from config_data import config_data
-from logging import getLogger
+from logging import getLogger, Logger
 from logging_setup import setup_logging
 import time
 
-logger = getLogger(__name__)
+logger: Logger = getLogger(__name__)
 
 if __name__ == "__main__":
 
-    logger = setup_logging("logging.csv")
+    freeze_support()
+    logger: Logger = setup_logging("logging.csv")
 
     if config_data.download_files:
         #Creating directory for course
@@ -26,7 +28,7 @@ if __name__ == "__main__":
         topics = driver_control.get_course_topics(driver=config_data.web_driver)
         if topics[config_data.course_name]:
 
-            main_course_page_url = f"{config_data.base_url}{topics[config_data.course_name]}"
+            main_course_page_url: str = f"{config_data.base_url}{topics[config_data.course_name]}"
 
             driver_control.make_get_request(driver=config_data.web_driver, url=main_course_page_url)
             logger.info("Successfully got to the course's main page")
@@ -49,11 +51,10 @@ if __name__ == "__main__":
 
     if config_data.download_videos:
 
-        video_data = data_handler.read_video_data(config_data.video_data_path)
+        video_data: list[tuple[str, str]] = data_handler.read_video_data(config_data.video_data_path)
 
-        driver_control.download_videos(video_data)
-
-
+        with Pool(config_data.process_number) as pool:
+            pool.map(driver_control.download_video, video_data)
 
 
 

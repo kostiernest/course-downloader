@@ -1,11 +1,11 @@
 import os.path
-from logging import getLogger
+from logging import getLogger, Logger
 from os import walk, remove, listdir, rmdir, mkdir
 from os.path import isdir, exists, isfile
 from queue import LifoQueue
 from typing import List
 
-logger = getLogger(__name__)
+logger: Logger = getLogger(__name__)
 
 
 def clear_old_files(path: str) -> None:
@@ -53,7 +53,6 @@ def create_folder(path: str) -> None:
 
     Returns:
         Returns nothing.
-
     """
     if exists(path):
         clear_old_files(path)
@@ -71,7 +70,7 @@ def get_rid_of_forbidden_symbols(string: str)->str:
         std: Forbidden symbols free str.
 
     """
-    forbidden_symbols = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
+    forbidden_symbols: list[str] = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
     for symbol in forbidden_symbols:
         if symbol in string:
             string = string.replace(symbol, "")
@@ -96,7 +95,7 @@ def create_folders(location: str, folder_names: List[str]) -> None:
             #Getting rid of forbidden symbols
             folder_name = get_rid_of_forbidden_symbols(folder_name)
 
-            path = f"{location}\\{folder_name}"
+            path: str = f"{location}\\{folder_name}"
 
             mkdir(path)
 
@@ -115,7 +114,7 @@ def read_video_data(path: str) -> List[tuple[str,str]]:
     try:
         with open(file=path, mode="r", encoding="utf-8") as file:
             for line in file:
-                values = line.split("|")
+                values                      = line.split("|")
                 res.append((values[0].strip(), values[1].strip()))
     except FileNotFoundError as e:
         logger.critical(f"[{type(e).__name__}] - [{e}]")
@@ -136,7 +135,7 @@ def has_video(path: str) -> bool:
     """
     try:
 
-        found = False
+        found: bool = False
         for root, dirs, files in walk(path):
             if isfile(root):
                 base,extension   = os.path.splitext(root)
