@@ -1,7 +1,9 @@
 import data_handler
+import driver_control
 from config_data import config_data
 from logging import getLogger
 from logging_setup import setup_logging
+import time
 
 logger = getLogger(__name__)
 
@@ -12,11 +14,30 @@ if __name__ == "__main__":
     #Creating directory for course
     data_handler.create_folder(config_data.export_path)
 
-    #driver_control.logging_in(driver=config_data.web_driver)
+    driver_control.logging_in(driver=config_data.web_driver)
 
-    #driver_control.make_get_request(driver=config_data.web_driver, url=config_data.main_course_page_url)
+    driver_control.make_get_request(driver=config_data.web_driver, url=config_data.teach_url)
 
-    #time.sleep(5)
+    #Getting to the main course page
+    topics = driver_control.get_course_topics(driver=config_data.web_driver)
+    if topics[config_data.course_name]:
+
+        main_course_page_url = f"{config_data.base_url}{topics[config_data.course_name]}"
+
+        driver_control.make_get_request(driver=config_data.web_driver, url=main_course_page_url)
+        logger.info("Successfully got to the course's main page")
+    else:
+        logger.critical("Problem with getting to the course's main page occured.")
+        config_data.web_driver.quit()
+        exit(3)
+
+    #Getting course topics
+    topics = driver_control.get_course_topics(driver=config_data.web_driver)
+
+    #Creating folder for each topic
+    data_handler.create_folders(topics.keys())
+
+    time.sleep(5)
 
     config_data.web_driver.quit()
 

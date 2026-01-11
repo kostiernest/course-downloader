@@ -20,6 +20,7 @@ def make_get_request(driver: webdriver, url: str) -> None:
     Returns:
         Returns nothing.
     """
+
     try:
         driver.get(url)
 
@@ -29,7 +30,7 @@ def make_get_request(driver: webdriver, url: str) -> None:
         logger.critical(f"[{type(e).__name__}] - [{e}]")
         exit(3)
     else:
-        logger.info(f"Click-through {url} successful.")
+        logger.info(f"Click-through to {url} successful.")
 
 
 def get_page_code(driver: webdriver) -> str | None:
@@ -44,9 +45,10 @@ def get_page_code(driver: webdriver) -> str | None:
     """
     page_html = driver.page_source
 
-    soup = BeautifulSoup(page_html, "html.parser")
+    soup  = BeautifulSoup(page_html, "html.parser")
 
-    return  soup.prettify()
+    return soup.prettify()
+
 
 def logging_in(driver: webdriver):
 
@@ -81,11 +83,22 @@ def logging_in(driver: webdriver):
         exit(3)
 
 
+def get_course_topics(driver: webdriver):
 
+    html_code = get_page_code(driver=driver)
 
+    soup = BeautifulSoup(html_code, "html.parser")
 
+    div = soup.find("div", class_="col-md-12")
 
+    if div:
+        table = div.find("table", class_="stream-table")
 
+        if table:
 
+            links = [a.get("href") for a in table.find_all("a") if a.get("href")]
+            names = [span.get_text(strip=True) for span in table.find_all("span", class_="stream-title")]
 
+            topics = dict(zip(names, links))
 
+            return topics
