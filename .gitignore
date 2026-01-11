@@ -1,1 +1,9 @@
 config.json
+logging.csv
+stealer.spec
+video_data.csv
+chromedriver-win64
+Course
+dist
+ffmpeg
+build
