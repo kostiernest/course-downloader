@@ -4,6 +4,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from logging import getLogger
+from typing import Dict
+import data_handler
 from config_data import config_data
 from bs4 import BeautifulSoup
 
@@ -22,6 +24,7 @@ def make_get_request(driver: webdriver, url: str) -> None:
     """
 
     try:
+
         driver.get(url)
 
     except (TimeoutException,
@@ -30,7 +33,7 @@ def make_get_request(driver: webdriver, url: str) -> None:
         logger.critical(f"[{type(e).__name__}] - [{e}]")
         exit(3)
     else:
-        logger.info(f"Click-through to {url} successful.")
+        logger.info(f"Click-through {url} successful.")
 
 
 def get_page_code(driver: webdriver) -> str | None:
@@ -45,7 +48,7 @@ def get_page_code(driver: webdriver) -> str | None:
     """
     page_html = driver.page_source
 
-    soup  = BeautifulSoup(page_html, "html.parser")
+    soup = BeautifulSoup(page_html, "html.parser")
 
     return soup.prettify()
 
@@ -71,7 +74,7 @@ def logging_in(driver: webdriver):
         password_field.send_keys(config_data.password)
 
         #Pressing log in button
-        login_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Send')]")
+        login_button                        = driver.find_element(By.XPATH, "//button[contains(text(), 'Send')]")
         login_button.click()
         wait.until(EC.presence_of_element_located((By.CLASS_NAME, "btn-enter")))
 
@@ -83,7 +86,7 @@ def logging_in(driver: webdriver):
         exit(3)
 
 
-def get_course_topics(driver: webdriver):
+def get_course_topics(driver: webdriver) -> Dict | None:
 
     html_code = get_page_code(driver=driver)
 
@@ -102,3 +105,43 @@ def get_course_topics(driver: webdriver):
             topics = dict(zip(names, links))
 
             return topics
+
+
+def get_topic_lessons(driver: webdriver) -> Dict | None:
+
+    html_code = get_page_code(driver=driver)
+
+    soup = BeautifulSoup(html_code, "html.parser")
+
+    lessons = soup.find_all("li", class_="user-state-reached")
+
+    links = []
+    lesson_names = []
+    for li in lessons:
+
+        title_div = li.find("div", class_="link title")
+        link = title_div.get("href")
+        lesson_name = title_div.get_text(strip=True)
+        if "completed" in lesson_name:
+            lesson_name=lesson_name[:-11]
+
+        links.append(link)
+        lesson_names.append(lesson_name)
+
+    return dict(zip(lesson_names, links))
+
+
+def parse_topic(driver:webdriver, topic_data: tuple[str, str]):
+
+    make_get_request(driver=driver, url=topic_data[1])
+
+    lessons = get_topic_lessons(driver)
+
+    data_handler.create_folders(location=f"{config_data.export_path}\\{topic_data[0]}", folder_names=list(lessons.keys()))
+
+    driver.back()
+
+
+
+
+

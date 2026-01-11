@@ -7,6 +7,7 @@ import time
 
 logger = getLogger(__name__)
 
+
 if __name__ == "__main__":
 
     logger = setup_logging("logging.csv")
@@ -35,9 +36,11 @@ if __name__ == "__main__":
     topics = driver_control.get_course_topics(driver=config_data.web_driver)
 
     #Creating folder for each topic
-    data_handler.create_folders(topics.keys())
+    data_handler.create_folders(config_data.export_path, list(topics.keys()))
 
-    time.sleep(5)
+    for key, value in topics.items():
+        driver_control.parse_topic(driver=config_data.web_driver, topic_data=(key, f"{config_data.base_url}{value}"))
+        time.sleep(5)
 
     config_data.web_driver.quit()
 

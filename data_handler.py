@@ -3,7 +3,6 @@ from os import walk, remove, listdir, rmdir, mkdir
 from os.path import isdir, exists
 from queue import LifoQueue
 from typing import List
-from config_data import config_data
 
 logger = getLogger(__name__)
 
@@ -28,7 +27,7 @@ def clear_old_files(path: str) -> None:
                         folder_remain_to_delete.put(root)
 
             while not folder_remain_to_delete.empty():
-                path = folder_remain_to_delete.get()
+                path                    = folder_remain_to_delete.get()
                 rmdir(path)
 
     except (ValueError, FileNotFoundError) as e:
@@ -44,11 +43,18 @@ def create_folder(path: str) -> None:
     mkdir(path)
 
 
-def create_folders(folder_names: List[str]) -> None:
+def create_folders(location: str, folder_names: List[str]) -> None:
 
-    if exists(config_data.export_path):
+    forbidden_symbols = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
+
+    if exists(location):
 
         for folder_name in folder_names:
-            path  = f"{config_data.export_path}\\{folder_name}"
-            mkdir(path)
+            #Getting rid of forbidden symbols
+            for symbol in forbidden_symbols:
+                if symbol in folder_name:
+                    folder_name = folder_name.replace(symbol, "")
 
+            path = f"{location}\\{folder_name}"
+
+            mkdir(path)
