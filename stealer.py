@@ -47,11 +47,11 @@ if __name__ == "__main__":
 
         config_data.web_driver.quit()
 
-        if config_data.download_videos:
+    if config_data.download_videos:
 
-            video_data = data_handler.read_video_data(config_data.video_data_path)
+        video_data = data_handler.read_video_data(config_data.video_data_path)
 
-            driver_control.download_videos(video_data)
+        driver_control.download_videos(video_data)
 
 
 
