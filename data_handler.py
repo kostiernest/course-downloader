@@ -45,6 +45,7 @@ def create_folder(path: str) -> None:
 
 def create_folders(location: str, folder_names: List[str]) -> None:
 
+
     forbidden_symbols = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
 
     if exists(location):
@@ -55,6 +56,6 @@ def create_folders(location: str, folder_names: List[str]) -> None:
                 if symbol in folder_name:
                     folder_name = folder_name.replace(symbol, "")
 
-            path = f"{location}\\{folder_name}"
+            path  = f"{location}\\{folder_name}"
 
             mkdir(path)

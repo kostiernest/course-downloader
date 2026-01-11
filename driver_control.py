@@ -1,3 +1,8 @@
+import json
+import re
+from collections import namedtuple
+from json import JSONDecodeError
+import youtube_dl
 from selenium import webdriver
 from selenium.common import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
@@ -5,11 +10,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from logging import getLogger
 from typing import Dict
+from youtube_dl import DownloadError
 import data_handler
 from config_data import config_data
 from bs4 import BeautifulSoup
 
+
 logger = getLogger(__name__)
+Data_Links = namedtuple("Data_Links", ["img_links", "file_links", "video_links"])
 
 
 def make_get_request(driver: webdriver, url: str) -> None:
@@ -22,9 +30,7 @@ def make_get_request(driver: webdriver, url: str) -> None:
     Returns:
         Returns nothing.
     """
-
     try:
-
         driver.get(url)
 
     except (TimeoutException,
@@ -33,7 +39,7 @@ def make_get_request(driver: webdriver, url: str) -> None:
         logger.critical(f"[{type(e).__name__}] - [{e}]")
         exit(3)
     else:
-        logger.info(f"Click-through {url} successful.")
+        logger.info(f"Click-through to {url} successful.")
 
 
 def get_page_code(driver: webdriver) -> str | None:
@@ -102,7 +108,11 @@ def get_course_topics(driver: webdriver) -> Dict | None:
             links = [a.get("href") for a in table.find_all("a") if a.get("href")]
             names = [span.get_text(strip=True) for span in table.find_all("span", class_="stream-title")]
 
-            topics = dict(zip(names, links))
+            topics  = dict(zip(names, links))
+            try:
+                topics.pop("Step№1. Instructions to the course.")
+            except (ValueError, KeyError) as e:
+                pass
 
             return topics
 
@@ -125,23 +135,129 @@ def get_topic_lessons(driver: webdriver) -> Dict | None:
         if "completed" in lesson_name:
             lesson_name=lesson_name[:-11]
 
-        links.append(link)
-        lesson_names.append(lesson_name)
+        if not ("ZOOM meeting" in lesson_name):
+            links.append(link)
+            lesson_names.append(lesson_name)
+
 
     return dict(zip(lesson_names, links))
 
 
-def parse_topic(driver:webdriver, topic_data: tuple[str, str]):
+def parse_topic(driver:webdriver, topic_name: str, topic_link: str):
 
-    make_get_request(driver=driver, url=topic_data[1])
+    make_get_request(driver=driver, url=topic_link)
 
-    lessons = get_topic_lessons(driver)
+    lessons                             = get_topic_lessons(driver)
 
-    data_handler.create_folders(location=f"{config_data.export_path}\\{topic_data[0]}", folder_names=list(lessons.keys()))
+    data_handler.create_folders(location=f"{config_data.export_path}\\{topic_name}", folder_names=list(lessons.keys()))
+
+    for lesson_name, lesson_link in lessons.items():
+        parse_lesson(driver=driver, topic_name=topic_name, lesson_name=lesson_name, lesson_link=f"{config_data.base_url}{lesson_link}")
 
     driver.back()
 
 
+def parse_lesson(driver: webdriver, topic_name, lesson_name: str, lesson_link: str):
 
+    make_get_request(driver=driver, url=lesson_link)
+
+    html = get_page_code(driver)
+
+    all_links = get_data_links(driver, html)
+
+    if all_links.video_links:
+        for v_link in all_links.video_links:
+            download_video(playlist_url=v_link, path=f"{config_data.export_path}\\{topic_name}\\{lesson_name}")
+
+    driver.back()
+
+
+def get_data_links(driver: webdriver, html : str) -> namedtuple:
+
+    soup = BeautifulSoup(html, "html.parser")
+    blocks = soup.find_all("div", attrs={"data-code": True,
+                                                                            "data-block-id": True})
+
+    links = []
+    player_links  = []
+
+    for block in blocks:
+
+        for tag in block.find_all("iframe"):
+            src = tag.get("src")
+            if src:
+                player_links.append(src)
+
+        for tag in block.find_all("a"):
+            href = tag.get("href")
+            if href:
+                links.append(href)
+
+        for tag in block.find_all("a"):
+            src  = tag.get("img")
+            if src:
+                links.append(src)
+
+    #Getting video links
+    video_links = []
+    for player_link in player_links:
+        video_links.append(get_video_playlist_url(driver=driver, player_url=player_link))
+
+    return Data_Links(img_links=links, file_links=None,video_links=video_links)
+
+
+def get_video_playlist_url(driver: webdriver, player_url: str) -> str:
+
+    make_get_request(driver=driver, url=player_url)
+
+    html = get_page_code(driver=driver)
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    try:
+        tag = soup.find("script", text=re.compile(r"window\.configs\s*=\s*\{"))
+
+        if not tag:
+            raise Exception("Failed to get masterPlaylistUrl.")
+
+        script = tag.string
+        match = re.search(r"window\.configs\s*=\s*(\{.*?\})(?:\s*;|\s*$)", script, re.DOTALL)
+
+        if not match:
+            raise Exception("Failed to get JSON.")
+
+        json_str= match.group(1).rstrip(";")
+
+        master_url = json.loads(json_str).get("masterPlaylistUrl")
+
+    except (Exception, JSONDecodeError) as e:
+        logger.critical(f"[{type(e).__name__}] - [{e}]")
+        exit(3)
+
+    driver.back()
+
+    logger.info(f"Link to download video acquired: {master_url}")
+
+    return master_url
+
+
+def download_video(playlist_url: str, path: str) -> None:
+    ydl_set = {
+                "format" : "best",
+                "hls_prefer_native": True,
+                "hls_use_mpegts": True,
+                "verbose": True,
+                "outtmpl": f"{path}/%(title)s.%(ext)s",
+                "ffmpeg_location": "ffmpeg\\bin\\ffmpeg.exe",
+               }
+
+    for attempt in range(0,5):
+        try:
+            with youtube_dl.YoutubeDL(ydl_set) as ydl:
+                ydl.download([playlist_url])
+            break
+
+        except DownloadError as e:
+            logger.critical(f"Failed to download a video. Try number: {attempt}")
 
 
