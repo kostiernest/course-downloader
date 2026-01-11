@@ -1,10 +1,8 @@
-import requests
-import data_handler
+import time
+import driver_control
 from config_data import config_data
 from logging import getLogger
-from data_handler import make_get_request
 from logging_setup import setup_logging
-
 
 logger = getLogger(__name__)
 
@@ -13,12 +11,13 @@ if __name__ == "__main__":
 
     logger = setup_logging("logging.csv")
 
+    driver_control.logging_in(config_data.web_driver)
 
-    with requests.Session() as session:
+    time.sleep(5)
 
-        data_handler.logging_in(session=session, url=config_data.login_url)
+    config_data.web_driver.quit()
 
-        make_get_request(session=session, url=config_data.main_course_page_url)
+
 
 
 
