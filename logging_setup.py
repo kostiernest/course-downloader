@@ -1,6 +1,7 @@
 import sys
 from logging import getLogger, Logger, FileHandler, StreamHandler, Formatter, DEBUG, INFO
 
+
 def setup_logging(logger_file_path: str) -> Logger:
 	"""
 	Setups main logger for project.
@@ -25,7 +26,6 @@ def setup_logging(logger_file_path: str) -> Logger:
 	message_format = "%(asctime)s | %(name)s | %(funcName)s | [%(levelname)s] - %(message)s"
 	date_format = "%Y-%m-%d %H:%M:%S"
 	formatter = Formatter(fmt=message_format, datefmt=date_format)
-
 
 	#Adding formatters to handlers
 	file_handler.setFormatter(formatter)
