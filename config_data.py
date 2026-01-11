@@ -20,6 +20,9 @@ class ConfigData:
                 logger.critical(f"[{type(e).__name__}] - [{e}]")
                 exit(3)
 
+            #Usage Mode
+            cls.download_files = config_data["Usage_Mode"]["download_files"]
+            cls.download_videos = config_data["Usage_Mode"]["download_videos"]
             #Course Data
             cls.course_name = config_data["course_name"]
             #Login_data
@@ -33,9 +36,10 @@ class ConfigData:
             cls.teach_url = config_data["URLs"]["teach_url"]
 
             #Web driver
-            cls.web_driver = webdriver.Chrome(service=Service(executable_path=config_data["Browser_Driver_Path"]))
+            cls.web_driver = webdriver.Chrome(service=Service(executable_path=config_data["browser_driver_path"]))
 
             #Export path
+            cls.video_data_path = config_data["video_data_path"]
             cls.export_path = config_data["export_path"]
 
         return ConfigData._instance

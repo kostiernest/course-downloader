@@ -1,4 +1,5 @@
 import json
+import multiprocessing
 import re
 from collections import namedtuple
 from json import JSONDecodeError
@@ -9,7 +10,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from logging import getLogger
-from typing import Dict
+from typing import Dict, List
 from youtube_dl import DownloadError
 import data_handler
 from config_data import config_data
@@ -32,7 +33,6 @@ def make_get_request(driver: webdriver, url: str) -> None:
     """
     try:
         driver.get(url)
-
     except (TimeoutException,
             WebDriverException,
             Exception) as e:
@@ -83,7 +83,7 @@ def logging_in(driver: webdriver):
         login_button                        = driver.find_element(By.XPATH, "//button[contains(text(), 'Send')]")
         login_button.click()
         wait.until(EC.presence_of_element_located((By.CLASS_NAME, "btn-enter")))
-
+        
         logger.info("Login successful.")
 
     except Exception as e:
@@ -108,7 +108,7 @@ def get_course_topics(driver: webdriver) -> Dict | None:
             links = [a.get("href") for a in table.find_all("a") if a.get("href")]
             names = [span.get_text(strip=True) for span in table.find_all("span", class_="stream-title")]
 
-            topics  = dict(zip(names, links))
+            topics = dict(zip(names, links))
             try:
                 topics.pop("Step№1. Instructions to the course.")
             except (ValueError, KeyError) as e:
@@ -139,7 +139,6 @@ def get_topic_lessons(driver: webdriver) -> Dict | None:
             links.append(link)
             lesson_names.append(lesson_name)
 
-
     return dict(zip(lesson_names, links))
 
 
@@ -147,12 +146,20 @@ def parse_topic(driver:webdriver, topic_name: str, topic_link: str):
 
     make_get_request(driver=driver, url=topic_link)
 
-    lessons                             = get_topic_lessons(driver)
+    lessons = get_topic_lessons(driver)
 
     data_handler.create_folders(location=f"{config_data.export_path}\\{topic_name}", folder_names=list(lessons.keys()))
 
-    for lesson_name, lesson_link in lessons.items():
-        parse_lesson(driver=driver, topic_name=topic_name, lesson_name=lesson_name, lesson_link=f"{config_data.base_url}{lesson_link}")
+    with open(file=config_data.video_data_path, mode="a", encoding="utf-8") as file:
+
+        for lesson_name, lesson_link in lessons.items():
+            video_links = parse_lesson(driver       = driver,
+                                       topic_name   = topic_name,
+                                       lesson_name  = lesson_name,
+                                       lesson_link  = f"{config_data.base_url}{lesson_link}")
+            for video_link in video_links:
+                full_str = f"{config_data.export_path}\\{topic_name}\\{lesson_name}:{video_link}"
+                file.write(full_str)
 
     driver.back()
 
@@ -165,21 +172,18 @@ def parse_lesson(driver: webdriver, topic_name, lesson_name: str, lesson_link: s
 
     all_links = get_data_links(driver, html)
 
-    if all_links.video_links:
-        for v_link in all_links.video_links:
-            download_video(playlist_url=v_link, path=f"{config_data.export_path}\\{topic_name}\\{lesson_name}")
-
     driver.back()
+
+    return all_links.video_links
 
 
 def get_data_links(driver: webdriver, html : str) -> namedtuple:
 
     soup = BeautifulSoup(html, "html.parser")
-    blocks = soup.find_all("div", attrs={"data-code": True,
-                                                                            "data-block-id": True})
+    blocks = soup.find_all("div", attrs={"data-code": True, "data-block-id": True})
 
     links = []
-    player_links  = []
+    player_links = []
 
     for block in blocks:
 
@@ -194,7 +198,7 @@ def get_data_links(driver: webdriver, html : str) -> namedtuple:
                 links.append(href)
 
         for tag in block.find_all("a"):
-            src  = tag.get("img")
+            src = tag.get("img")
             if src:
                 links.append(src)
 
@@ -226,7 +230,7 @@ def get_video_playlist_url(driver: webdriver, player_url: str) -> str:
         if not match:
             raise Exception("Failed to get JSON.")
 
-        json_str= match.group(1).rstrip(";")
+        json_str = match.group(1).rstrip(";")
 
         master_url = json.loads(json_str).get("masterPlaylistUrl")
 
@@ -241,23 +245,30 @@ def get_video_playlist_url(driver: webdriver, player_url: str) -> str:
     return master_url
 
 
-def download_video(playlist_url: str, path: str) -> None:
-    ydl_set = {
-                "format" : "best",
-                "hls_prefer_native": True,
-                "hls_use_mpegts": True,
-                "verbose": True,
-                "outtmpl": f"{path}/%(title)s.%(ext)s",
-                "ffmpeg_location": "ffmpeg\\bin\\ffmpeg.exe",
-               }
+def download_videos(video_data: List[tuple[str, str]]):
+    with multiprocessing.Pool() as pool:
+        pool.map(download_video, video_data)
+
+
+def download_video(video_data: tuple[str,str]) -> None:
+
+    path, url = video_data
+
+    if data_handler.has_video(path=path):
+        return
+
+    ydl_set = {"format" : "best",
+               "hls_prefer_native": True,
+               "hls_use_mpegts": True,
+               "verbose": True,
+               "outtmpl": f"{path}/%(title)s.%(ext)s",
+               "ffmpeg_location": "ffmpeg\\bin\\ffmpeg.exe",}
 
     for attempt in range(0,5):
         try:
             with youtube_dl.YoutubeDL(ydl_set) as ydl:
-                ydl.download([playlist_url])
+                ydl.download([url])
             break
 
-        except DownloadError as e:
+        except DownloadError:
             logger.critical(f"Failed to download a video. Try number: {attempt}")
-
-
